@@ -129,7 +129,7 @@ export default defineNuxtConfig({
     },
   },
 
-  // Add this to suppress TypeScript errors
+  // Add this to suppress TypeScript errors (fix build erros)
   typescript: {
     strict: false
   },
