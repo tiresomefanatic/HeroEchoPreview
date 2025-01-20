@@ -65,6 +65,13 @@
             <!-- Main content area -->
             <ClientOnly>
               <div v-if="isEditing" class="editor-container mt-4">
+                <!-- <TiptapEditor
+                  :content="editorContent"
+                  :filePath="contentPath"
+                  @update:content="handleContentChange"
+                  @save="handleSave"
+                  @error="handleEditorError"
+                /> -->
                 <Editor
                   :content="editorContent.toString()"
                   :filePath="contentPath"
@@ -118,7 +125,7 @@ import DesignSidebar from "~/components/DesignSidebar.vue";
 import Header from "~/components/Header.vue";
 import { useRuntimeConfig, useNuxtApp } from "#app";
 import { marked } from "marked";
-
+import TiptapEditor from "~/components/TiptapEditor.vue";
 // Initialize GitHub functionality and services
 const {
   getRawContent,
@@ -286,43 +293,31 @@ const handleLoadSave = (content: string) => {
 };
 
 const handleBranchChange = async (event: Event) => {
-  const select = event.target as HTMLSelectElement;
-  const newBranch = select.value;
+  const target = event.target as HTMLSelectElement;
+  const branchName = target.value;
 
-  if (newBranch !== currentBranch.value) {
-    const editorStore = useEditorStore();
+  if (!branchName || branchName === currentBranch.value) return;
 
-    // Save current content before switching
-    if (props.filePath) {
-      const currentContent = store.rawText;
-      editorStore.saveContent(props.filePath, currentContent);
-    }
-
-    // Switch branch
-    await switchBranch(newBranch);
-
-    // Load content for new branch
-    try {
-      const { content, sha } = await getFileContent(props.filePath, newBranch);
-      if (content) {
-        editorStore.saveGitContent(props.filePath, content, newBranch, sha);
-        // Update the editor content
-        store.rawText = content;
-
-        showToast({
-          title: "Branch Switched",
-          message: `Successfully switched to branch "${newBranch}"`,
-          type: "success",
-        });
-      }
-    } catch (error) {
-      console.error("Error loading content for new branch:", error);
+  loading.value = true;
+  try {
+    const success = await switchBranch(branchName);
+    if (success) {
+      await loadGithubContent();
       showToast({
-        title: "Error",
-        message: `Failed to load content for branch "${newBranch}"`,
-        type: "error",
+        title: "Success",
+        message: `Switched to branch: ${branchName}`,
+        type: "success",
       });
     }
+  } catch (error) {
+    console.error("Error switching branch:", error);
+    showToast({
+      title: "Error",
+      message: "Failed to switch branch",
+      type: "error",
+    });
+  } finally {
+    loading.value = false;
   }
 };
 

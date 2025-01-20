@@ -401,38 +401,39 @@ onMounted(() => {
       },
       handleDrop: false,
       handleClick: (view: EditorView, pos: number, event: MouseEvent) => {
-        // Get the precise position
-        const precise = view.posAtCoords({
-          left: event.clientX,
-          top: event.clientY,
-        });
-
-        if (!precise) return false;
-
-        const { pos: precisePos } = precise;
-        const $pos = view.state.doc.resolve(precisePos);
-
-        // Check if we're actually clicking on text content
-        const domAtPos = view.domAtPos(precisePos);
-        if (!domAtPos) return false;
-
-        const { node: domNode, offset } = domAtPos;
-        const element = event.target as HTMLElement;
-
-        // If clicking on/near an image, don't interfere
-        if (element.nodeName === "IMG" || element.closest("img")) {
-          return false;
-        }
-
-        // Create selection at the precise click position
-        view.dispatch(
-          view.state.tr.setSelection(
-            TextSelection.create(view.state.doc, precisePos)
-          )
+        const coordsAtPos = view.coordsAtPos(pos);
+        const element = document.elementFromPoint(
+          coordsAtPos.left,
+          coordsAtPos.top
         );
 
-        view.focus();
-        return true;
+        if (element?.closest('[style*="display: flex"]')) {
+          const flexContainer = element.closest('[style*="display: flex"]');
+          if (flexContainer) {
+            const rect = flexContainer.getBoundingClientRect();
+            const relativeY = event.clientY - rect.top;
+
+            const children = Array.from(flexContainer.children);
+            const targetChild = children.find((child) => {
+              const childRect = child.getBoundingClientRect();
+              return (
+                event.clientY >= childRect.top &&
+                event.clientY <= childRect.bottom
+              );
+            });
+
+            if (targetChild) {
+              const targetPos = view.posAtDOM(targetChild, 0);
+              view.dispatch(
+                view.state.tr.setSelection(
+                  TextSelection.create(view.state.doc, targetPos)
+                )
+              );
+              return true;
+            }
+          }
+        }
+        return false;
       },
       handleKeyDown: (view: EditorView, event: KeyboardEvent) => {
         if (event.key === "Enter") {
