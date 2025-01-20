@@ -1,61 +1,97 @@
-# [...slug].vue
 <template>
   <div class="page-wrapper">
     <ClientOnly>
-      <div v-if="data">
+      <div>
         <Header />
         <div class="content-area" :class="{ 'editing-mode': isEditing }">
           <!-- Mobile menu wrapper -->
-          <div class="mobile-menu-wrapper">
+          <div class="mobile-menu-wrapper md:hidden">
             <DesignSidebar />
           </div>
 
           <!-- Desktop sidebar shown only in non-editing mode -->
-          <aside v-if="!isEditing && showSidebar" class="sidebar">
+          <aside
+            v-if="!isEditing && showSidebar"
+            class="sidebar hidden md:block fixed top-[60px] left-0 bottom-0 w-64 bg-white border-r border-gray-200 overflow-y-auto"
+          >
             <DesignSidebar />
           </aside>
 
           <div
-            class="main-content"
-            :class="{ 'with-sidebar': !isEditing && showSidebar }"
+            class="main-content flex-1"
+            :class="{ 'md:ml-64': !isEditing && showSidebar }"
           >
             <!-- Content header with edit controls - only show when logged in -->
-            <div v-if="isLoggedIn" class="content-header">
+            <div
+              v-if="isLoggedIn"
+              class="content-header fixed top-[76px] right-6 z-10 flex items-center gap-3"
+            >
               <ClientOnly>
+                <div v-if="branches.length > 0" class="branch-select-wrapper">
+                  <select
+                    v-model="currentBranch"
+                    @change="handleBranchChange"
+                    class="branch-select px-3 py-2 bg-white border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option
+                      v-for="branch in branches"
+                      :key="branch"
+                      :value="branch"
+                    >
+                      {{ branch }}
+                    </option>
+                  </select>
+                </div>
                 <button
                   v-if="!isEditing"
                   @click="handleEditClick"
-                  class="edit-button"
+                  class="edit-button px-4 py-2 bg-[#0969DA] text-white rounded-md hover:bg-blue-700 transition-colors"
                 >
                   Edit
                 </button>
-                <button v-else @click="exitEditor" class="edit-button">
+                <button
+                  v-else
+                  @click="exitEditor"
+                  class="edit-button px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors"
+                >
                   Exit
                 </button>
+                <ContentCreator v-if="isLoggedIn" />
               </ClientOnly>
             </div>
 
             <!-- Main content area -->
             <ClientOnly>
-              <div v-if="isEditing" class="editor-container">
-                <TiptapEditor
-                  :content="editorContent"
+              <div v-if="isEditing" class="editor-container mt-4">
+                <Editor
+                  :content="editorContent.toString()"
                   :filePath="contentPath"
                   @update:content="handleContentChange"
                   @save="handleSave"
                   @error="handleEditorError"
                 />
+                <CollaborationSidebar
+                  v-if="isLoggedIn"
+                  :filePath="contentPath"
+                  class="collaboration-sidebar"
+                  @load-save="handleLoadSave"
+                />
               </div>
-              <div v-else class="prose-content">
-                <div :key="contentKey">
-                  <ContentDoc :path="path" :head="false">
-                    <template #empty>
-                      <p>No content found.</p>
-                    </template>
-                    <template #not-found>
-                      <p>Content not found. Path: {{ path }}</p>
-                    </template>
-                  </ContentDoc>
+              <div v-else class="prose-content max-w-[960px] mx-auto px-6 py-8">
+                <div :key="githubContent">
+                  <template v-if="!isLoggedIn">
+                    <ContentDoc :path="path" :head="false">
+                      <template #empty>
+                        <p>No content found.</p>
+                      </template>
+                      <template #not-found>
+                        <p>Content not found. Path: {{ path }}</p>
+                      </template>
+                    </ContentDoc>
+                  </template>
+                  <template v-else>
+                    <div v-html="githubContent" class="markdown-content"></div>
+                  </template>
                 </div>
               </div>
             </ClientOnly>
@@ -73,10 +109,13 @@ import { queryContent } from "#imports";
 import { useGithub } from "~/composables/useGithub";
 import { useToast } from "~/composables/useToast";
 import { useAsyncData } from "#app";
-import TiptapEditor from "~/components/TiptapEditor.vue";
+import Editor from "~/components/playground/Editor.vue";
+import CollaborationSidebar from "~/components/CollaborationSidebar.vue";
+import ContentCreator from "~/components/ContentCreator.vue"; // Import ContentCreator component
 import DesignSidebar from "~/components/DesignSidebar.vue";
 import Header from "~/components/Header.vue";
 import { useRuntimeConfig, useNuxtApp } from "#app";
+import { marked } from "marked";
 
 // Initialize GitHub functionality and services
 const { getRawContent, saveFileContent, isLoggedIn, currentBranch } =
@@ -86,8 +125,11 @@ const { showToast } = useToast();
 // State management
 const loading = ref(false);
 const isEditing = ref(false);
+const githubContent = ref("");
 const editorContent = ref("");
+const contentKey = ref(0);
 const contentLastModified = ref<string | null>(null);
+const branches = ref<string[]>([]);
 
 // Route handling setup
 const route = useRoute();
@@ -96,24 +138,7 @@ const path = Array.isArray(slug) ? slug.join("/") : slug;
 
 // Compute whether to show sidebar based on path
 const showSidebar = computed(() => path !== "");
-const contentKey = computed(() => `${path}-${Date.now()}`);
-
-// Content queries for initial page load
-const { data } = await useAsyncData(
-  `content-${path}`,
-  () => {
-    if (!path) {
-      return queryContent().where({ _path: "/" }).findOne();
-    }
-    return queryContent()
-      .where({ _path: `/${path}` })
-      .findOne();
-  },
-  {
-    immediate: true,
-    server: true,
-  }
-);
+// const contentKey = computed(() => `${path}-${Date.now()}`);
 
 // Compute the content file path
 const contentPath = computed(() => {
@@ -122,80 +147,30 @@ const contentPath = computed(() => {
 });
 
 /**
- * Check if content needs to be refreshed by checking latest commit
+ * Load GitHub content
  */
-const checkContentFreshness = async () => {
+const loadGithubContent = async () => {
+  if (!isLoggedIn.value) return;
+
   try {
-    const response = await fetch(
-      `https://api.github.com/repos/tiresomefanatic/test-nuxt/commits?path=${contentPath.value}&sha=${currentBranch.value}`,
-      { headers: { Accept: "application/vnd.github.v3+json" } }
+    const content = await getRawContent(
+      "tiresomefanatic",
+      "heroechotest",
+      contentPath.value,
+      currentBranch.value
     );
 
-    if (!response.ok) {
-      throw new Error("Failed to fetch commit info");
-    }
-
-    const commits = await response.json();
-    const latestCommitSha = commits[0]?.sha;
-
-    if (latestCommitSha !== contentLastModified.value) {
-      console.log("New commit detected, refreshing content...");
-      contentLastModified.value = latestCommitSha;
-      return true;
-    }
-    return false;
+    // Convert markdown to HTML
+    githubContent.value = marked(content);
+    editorContent.value = content;
+    contentKey.value++; // Force re-render
   } catch (error) {
-    console.error("Error checking content freshness:", error);
-    return true; // Refresh on error to be safe
-  }
-};
-
-/**
- * Loads fresh content from GitHub.
- */
-const loadContent = async (force = false) => {
-  loading.value = true;
-  try {
-    const needsRefresh = force || (await checkContentFreshness());
-
-    if (needsRefresh) {
-      console.log(`Fetching fresh content at ${new Date().toISOString()}`);
-      console.log(`Branch: ${currentBranch.value}, Path: ${contentPath.value}`);
-
-      const content = await getRawContent(
-        "tiresomefanatic",
-        "test-nuxt",
-        contentPath.value,
-        currentBranch.value
-      );
-
-      editorContent.value = content;
-
-      if (process.client) {
-        const nuxtApp = useNuxtApp();
-        const storage = nuxtApp.$content?.storage;
-
-        if (storage) {
-          await storage.clearAll();
-        }
-
-        const query = !path
-          ? queryContent().where({ _path: "/" })
-          : queryContent().where({ _path: `/${path}` });
-
-        const newData = await query.findOne();
-        data.value = newData;
-      }
-    }
-  } catch (error) {
-    console.error("Content loading error:", error);
+    console.error("Error loading GitHub content:", error);
     showToast({
       title: "Error",
-      message: `Failed to load content from branch: ${currentBranch.value}`,
+      message: "Failed to load content from GitHub",
       type: "error",
     });
-  } finally {
-    loading.value = false;
   }
 };
 
@@ -203,8 +178,12 @@ const loadContent = async (force = false) => {
  * Handle visibility change event
  */
 const handleVisibilityChange = async () => {
-  if (document.visibilityState === "visible" && !isEditing.value) {
-    await loadContent();
+  if (
+    document.visibilityState === "visible" &&
+    !isEditing.value &&
+    isLoggedIn.value
+  ) {
+    await loadGithubContent();
   }
 };
 
@@ -222,7 +201,7 @@ const handleEditClick = async () => {
   }
 
   isEditing.value = true;
-  await loadContent(true);
+  await loadGithubContent();
 };
 
 const handleContentChange = (newContent: string) => {
@@ -245,7 +224,7 @@ const handleSave = async (content: string) => {
   try {
     const result = await saveFileContent(
       "tiresomefanatic",
-      "test-nuxt",
+      "heroechotest",
       contentPath.value,
       content,
       `Update ${contentPath.value}`,
@@ -253,14 +232,19 @@ const handleSave = async (content: string) => {
     );
 
     if (result) {
+      // Update local content immediately
+      githubContent.value = marked(content);
+      editorContent.value = content;
+      contentKey.value++; // Force re-render
+
       showToast({
         title: "Success",
         message: `Content saved successfully to branch: ${currentBranch.value}`,
         type: "success",
       });
 
-      await loadContent(true);
       isEditing.value = false;
+      await loadGithubContent(); // Refresh content from GitHub
     } else {
       throw new Error(`Failed to save to branch: ${currentBranch.value}`);
     }
@@ -283,294 +267,142 @@ const handleEditorError = (error: Error) => {
 };
 
 const exitEditor = async () => {
-  await loadContent(true);
+  await loadGithubContent();
   isEditing.value = false;
+};
+
+const handleLoadSave = (content: string) => {
+  editorContent.value = content;
+  githubContent.value = marked(content);
+  contentKey.value++; // Force re-render
+  isEditing.value = true; // Switch to edit mode to show the loaded content
+};
+
+const handleBranchChange = async () => {
+  await loadGithubContent();
 };
 
 // Watch for editing mode changes
 watch(isEditing, async (newValue, oldValue) => {
   if (newValue && !oldValue) {
-    await loadContent(true);
+    await loadGithubContent();
   }
 });
 
-// Watch for branch changes
-watch(currentBranch, async (newBranch, oldBranch) => {
-  if (newBranch !== oldBranch) {
-    await loadContent(true);
+// Watch for route changes
+watch(
+  () => route.path,
+  async () => {
+    if (isLoggedIn.value && !isEditing.value) {
+      await loadGithubContent();
+    }
   }
-});
+);
 
-// Watch for path changes
-watch(contentPath, async (newPath, oldPath) => {
-  if (newPath !== oldPath) {
-    await loadContent(true);
+// Watch for login state changes
+watch(isLoggedIn, async (newValue) => {
+  if (newValue && !isEditing.value) {
+    await loadGithubContent();
   }
 });
 
 // Setup content refresh and event handlers
-onMounted(() => {
+onMounted(async () => {
+  if (isLoggedIn.value && !isEditing.value) {
+    await loadGithubContent();
+  }
+
   if (process.client) {
-    loadContent(true);
     document.addEventListener("visibilitychange", handleVisibilityChange);
+  }
 
-    const contentRefreshInterval = setInterval(async () => {
-      if (!isEditing.value) {
-        await loadContent();
-      }
-    }, 30000);
+  //const branchesList = await getBranches("tiresomefanatic", "heroechotest");
+  // branches.value = branchesList;
+});
 
-    onBeforeUnmount(() => {
-      clearInterval(contentRefreshInterval);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-    });
+onBeforeUnmount(() => {
+  if (process.client) {
+    document.removeEventListener("visibilitychange", handleVisibilityChange);
   }
 });
 </script>
 
-# [...slug].vue
-
-<style>
-/* Global prose styles - these are essential */
-.prose-content {
-  max-width: 100%;
-  width: 100%;
-  margin: 0;
-  color: #000000;
-  font-size: 16px;
-  line-height: 1.6;
-}
-
-.prose-content h1 {
-  font-size: 2em;
-  margin: 1.2em 0 0.6em;
-  font-weight: 600;
-  line-height: 1.2;
-  color: #000000;
-}
-
-.prose-content h2 {
-  font-size: 1.5em;
-  margin: 1em 0 0.5em;
-  font-weight: 600;
-  line-height: 1.3;
-  color: #000000;
-}
-
-.prose-content h3 {
-  font-size: 1.25em;
-  margin: 0.8em 0 0.4em;
-  font-weight: 600;
-  line-height: 1.4;
-  color: #000000;
-}
-
-.prose-content p {
-  margin: 1em 0;
-  color: #000000;
-}
-
-.prose-content ul,
-.prose-content ol {
-  margin: 1em 0;
-  padding-left: 1.5em;
-  color: #000000;
-}
-
-.prose-content li {
-  margin: 0.5em 0;
-}
-
-.prose-content a {
-  color: #4361ee;
-  text-decoration: underline;
-}
-
-.prose-content blockquote {
-  border-left: 4px solid #e5e7eb;
-  margin: 1.5em 0;
-  padding-left: 1em;
-  color: #4b5563;
-}
-
-.prose-content code {
-  background: #f3f4f6;
-  padding: 0.2em 0.4em;
-  border-radius: 4px;
-  font-size: 0.9em;
-  font-family: ui-monospace, monospace;
-}
-
-.prose-content pre {
-  background: #f3f4f6;
-  padding: 1em;
-  border-radius: 6px;
-  overflow-x: auto;
-  margin: 1.5em 0;
-}
-
-.prose-content pre code {
-  background: none;
-  padding: 0;
-  font-size: 0.9em;
-  color: #000000;
-}
-
-.prose-content img {
-  max-width: 100%;
-  height: auto;
-  margin: 1.5em 0;
-}
-
-.prose-content hr {
-  border: 0;
-  border-top: 1px solid #e5e7eb;
-  margin: 2em 0;
-}
-</style>
-
 <style scoped>
 .page-wrapper {
-  min-height: 100vh;
-  position: relative;
-  width: 100%;
-  overflow-x: hidden;
+  @apply min-h-screen bg-white;
 }
 
 .content-area {
-  display: flex;
-  background: white;
-  min-height: calc(100vh - 64px);
-  position: relative;
-  width: 100%;
-}
-
-.content-area.editing-mode {
-  padding: 0;
+  @apply flex relative pt-16;
 }
 
 .sidebar {
-  width: 280px;
-  flex-shrink: 0;
-  background: white;
-  border-right: 1px solid #e5e7eb;
-  position: sticky;
-  top: 64px;
-  height: calc(100vh - 64px);
-  overflow-y: auto;
+  @apply fixed top-[60px] left-0 bottom-0 w-64 bg-white border-r border-gray-200 overflow-y-auto z-20;
 }
 
 .main-content {
-  flex: 1;
-  min-width: 0; /* Prevent flex item from overflowing */
-  padding: 32px;
-  position: relative;
-}
-
-.main-content.with-sidebar {
-  width: calc(100% - 280px);
+  @apply w-full min-h-[calc(100vh-64px)] transition-all duration-200 ease-in-out;
+  margin-left: 16rem;
 }
 
 .content-header {
-  padding: 24px 32px;
-  display: flex;
-  justify-content: flex-end;
-  background: white;
-  border-bottom: 1px solid #e5e7eb;
-  margin: -32px -32px 32px -32px;
+  @apply flex justify-end items-center;
 }
 
-.edit-button {
-  padding: 8px 16px;
-  background: #4361ee;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 14px;
-  transition: background-color 0.2s ease;
+.prose-content {
+  @apply px-6 py-8 max-w-[960px] mx-auto;
 }
 
-.edit-button:hover {
-  background: #3651d4;
+.markdown-content {
+  @apply prose prose-sm md:prose-base lg:prose-lg max-w-none;
 }
 
 .editor-container {
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  min-height: calc(100vh - 200px);
-  margin: 0;
-  padding: 20px;
-  width: 100%;
+  @apply h-[calc(100vh-200px)];
 }
 
-/* Loading state styles */
-.loading {
-  opacity: 0.7;
-  pointer-events: none;
-  transition: opacity 0.3s ease;
-}
-
-/* Toast container styles */
-.toast-container {
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
-  z-index: 1050;
-}
-
-/* Mobile menu wrapper styles */
-.mobile-menu-wrapper {
-  display: none;
+.branch-select-wrapper {
   position: relative;
-  z-index: 1000;
+  display: inline-block;
 }
 
+.branch-select {
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 0.5rem center;
+  background-size: 1em;
+  padding-right: 2.5rem;
+}
+
+.branch-select:focus {
+  outline: none;
+  border-color: #0969da;
+  box-shadow: 0 0 0 2px rgba(9, 105, 218, 0.1);
+}
+
+/* Editing mode styles */
+.editing-mode .sidebar {
+  @apply hidden;
+}
+
+.editing-mode .main-content {
+  @apply ml-0;
+}
+
+/* Mobile styles */
 @media (max-width: 768px) {
-  .mobile-menu-wrapper {
-    display: block;
-  }
-
-  .sidebar {
-    display: none;
-  }
-
   .main-content {
-    width: 100%;
-    padding: 16px;
-    padding-top: 80px;
-  }
-
-  .main-content.with-sidebar {
-    width: 100%;
-  }
-
-  .content-header {
-    margin: -16px -16px 16px -16px;
-    padding: 16px;
-  }
-
-  .editor-container {
-    padding: 16px;
-    margin: -16px;
-    width: calc(100% + 32px);
-    border-radius: 0;
-  }
-}
-
-/* Fix for mobile safari bottom bar */
-@supports (-webkit-touch-callout: none) {
-  .content-area {
-    min-height: -webkit-fill-available;
+    margin-left: 0;
   }
 
   .sidebar {
-    height: -webkit-fill-available;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease-in-out;
   }
 
-  .editor-container {
-    min-height: -webkit-fill-available;
+  .sidebar.active {
+    transform: translateX(0);
   }
 }
 </style>

@@ -8,7 +8,7 @@ export default defineNuxtConfig({
     "@pinia/nuxt", // State management
   ],
 
-  css: ["~/assets/css/content.css"],
+  css: ["~/assets/css/content.css", "~/assets/css/editor.css"],
 
   // Components configuration
   components: {
