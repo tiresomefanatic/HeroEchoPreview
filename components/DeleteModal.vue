@@ -31,6 +31,8 @@ const deleteDoc = async () => {
 </template>
 
 <style lang="scss" scoped>
+@use "@/assets/scss/main.scss" as *;
+
 .delete__modal {
     top: 50%;
     left: 50%;

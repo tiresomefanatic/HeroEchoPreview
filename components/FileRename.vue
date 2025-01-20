@@ -13,6 +13,8 @@ const { docTitle  } = storeToRefs(useStore());
 </template>
 
 <style lang="scss" scoped>
+@use "@/assets/scss/main.scss" as *;
+
 .doc {
     max-width: 40rem;
     color: $col-white;

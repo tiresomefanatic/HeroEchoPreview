@@ -13,6 +13,8 @@ const createDoc = () => {
 </template>
 
 <style lang="scss" scoped>
+@use "@/assets/scss/main.scss" as *;
+
 button {
     @include font(1.5rem, 1.8rem);
     color: $col-white;

@@ -35,6 +35,8 @@ const convertDate = (date: string) => {
 </template>
 
 <style lang="scss" scoped>
+@use "@/assets/scss/main.scss" as *;
+
 .sidebar {
     justify-content: space-between;
     width: 30rem;
