@@ -27,11 +27,12 @@
               class="content-header fixed top-[76px] right-6 z-10 flex items-center gap-3"
             >
               <ClientOnly>
-                <div v-if="branches.length > 0" class="branch-select-wrapper">
+                <div class="branch-select-wrapper">
                   <select
-                    v-model="currentBranch"
+                    :value="currentBranch"
                     @change="handleBranchChange"
-                    class="branch-select px-3 py-2 bg-white border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    class="branch-select"
+                    :disabled="loading"
                   >
                     <option
                       v-for="branch in branches"
@@ -41,6 +42,7 @@
                       {{ branch }}
                     </option>
                   </select>
+                  <div v-if="loading" class="loading-indicator"></div>
                 </div>
                 <button
                   v-if="!isEditing"
@@ -118,8 +120,13 @@ import { useRuntimeConfig, useNuxtApp } from "#app";
 import { marked } from "marked";
 
 // Initialize GitHub functionality and services
-const { getRawContent, saveFileContent, isLoggedIn, currentBranch } =
-  useGithub();
+const {
+  getRawContent,
+  saveFileContent,
+  isLoggedIn,
+  currentBranch,
+  switchBranch,
+} = useGithub();
 const { showToast } = useToast();
 
 // State management
@@ -278,8 +285,45 @@ const handleLoadSave = (content: string) => {
   isEditing.value = true; // Switch to edit mode to show the loaded content
 };
 
-const handleBranchChange = async () => {
-  await loadGithubContent();
+const handleBranchChange = async (event: Event) => {
+  const select = event.target as HTMLSelectElement;
+  const newBranch = select.value;
+
+  if (newBranch !== currentBranch.value) {
+    const editorStore = useEditorStore();
+
+    // Save current content before switching
+    if (props.filePath) {
+      const currentContent = store.rawText;
+      editorStore.saveContent(props.filePath, currentContent);
+    }
+
+    // Switch branch
+    await switchBranch(newBranch);
+
+    // Load content for new branch
+    try {
+      const { content, sha } = await getFileContent(props.filePath, newBranch);
+      if (content) {
+        editorStore.saveGitContent(props.filePath, content, newBranch, sha);
+        // Update the editor content
+        store.rawText = content;
+
+        showToast({
+          title: "Branch Switched",
+          message: `Successfully switched to branch "${newBranch}"`,
+          type: "success",
+        });
+      }
+    } catch (error) {
+      console.error("Error loading content for new branch:", error);
+      showToast({
+        title: "Error",
+        message: `Failed to load content for branch "${newBranch}"`,
+        type: "error",
+      });
+    }
+  }
 };
 
 // Watch for editing mode changes
@@ -368,17 +412,48 @@ onBeforeUnmount(() => {
 
 .branch-select {
   appearance: none;
-  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
-  background-repeat: no-repeat;
+  padding: 0.5rem 2.5rem 0.5rem 1rem;
+  background-color: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  color: #374151;
+  min-width: 160px;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
   background-position: right 0.5rem center;
-  background-size: 1em;
-  padding-right: 2.5rem;
+  background-repeat: no-repeat;
+  background-size: 1.5em 1.5em;
 }
 
 .branch-select:focus {
   outline: none;
-  border-color: #0969da;
-  box-shadow: 0 0 0 2px rgba(9, 105, 218, 0.1);
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.branch-select:disabled {
+  background-color: #f3f4f6;
+  cursor: not-allowed;
+}
+
+.loading-indicator {
+  position: absolute;
+  right: 2.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid #e5e7eb;
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: translateY(-50%) rotate(360deg);
+  }
 }
 
 /* Editing mode styles */

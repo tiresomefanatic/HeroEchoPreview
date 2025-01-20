@@ -204,10 +204,7 @@
                 <span class="save-branch">on branch {{ save.branch }}</span>
               </div>
               <div class="save-actions">
-                <button
-                  @click="$emit('load-save', save.content)"
-                  class="action-button"
-                >
+                <button @click="handleLoadSave(save)" class="action-button">
                   Load
                 </button>
                 <button
@@ -231,8 +228,9 @@
 import { ref, computed, onMounted, watch } from "vue";
 import { useGithub } from "~/composables/useGithub";
 import { useToast } from "~/composables/useToast";
-import { useEditorStore } from "~/stores/editor";
+import { useEditorStore } from "~/store/editor";
 import CreatePullRequest from "./CreatePullRequest.vue";
+import { useStore } from "~/store";
 
 // Type definitions
 interface PullRequest {
@@ -280,6 +278,8 @@ const pullRequests = ref<PullRequest[]>([]);
 const showNewBranchInput = ref(false);
 const newBranchName = ref("");
 const showCreatePR = ref(false);
+const showCommitDialog = ref(false);
+const commitMessage = ref("");
 
 // Composables
 const {
@@ -292,9 +292,13 @@ const {
   switchBranch,
   createBranch,
   resolveConflict,
+  getFileContent,
+  saveFileContent,
+  getRawContent,
 } = useGithub();
 
 const { showToast } = useToast();
+const store = useStore();
 const editorStore = useEditorStore();
 
 // Computed
@@ -308,6 +312,8 @@ const availableTabs = computed(() => [
   { id: "prs", label: "Pull Requests", count: pullRequests.value?.length || 0 },
   { id: "saves", label: "Saves", count: localSaves.value?.length || 0 },
 ]);
+
+const hasChanges = computed(() => false);
 
 // Methods
 const toggleSidebar = () => {
@@ -345,12 +351,39 @@ const loadCommits = async () => {
   }
 };
 
-const openCommit = (commit: Commit) => {
-  if (!commit.html_url) {
-    const url = `https://github.com/tiresomefanatic/test-nuxt/commit/${commit.sha}`;
-    window.open(url, "_blank");
-  } else {
-    window.open(commit.html_url, "_blank");
+const openCommit = async (commit: Commit) => {
+  try {
+    // Open commit in GitHub
+    if (!commit.html_url) {
+      const url = `https://github.com/tiresomefanatic/HeroEchoPreview/commit/${commit.sha}`;
+      window.open(url, "_blank");
+    } else {
+      window.open(commit.html_url, "_blank");
+    }
+
+    // Load commit content using getRawContent with commit SHA
+    const content = await getRawContent(
+      "tiresomefanatic",
+      "HeroEchoPreview",
+      props.filePath,
+      commit.sha // Use commit SHA as the ref
+    );
+
+    if (content) {
+      emit("load-save", content);
+      showToast({
+        title: "Success",
+        message: "Loaded content from commit",
+        type: "success",
+      });
+    }
+  } catch (error) {
+    console.error("Error loading commit content:", error);
+    showToast({
+      title: "Error",
+      message: "Failed to load commit content",
+      type: "error",
+    });
   }
 };
 
@@ -377,31 +410,43 @@ const loadPullRequests = async () => {
 };
 
 const handleBranchChange = async (event: Event) => {
-  const target = event.target as HTMLSelectElement;
-  const branchName = target.value;
+  const select = event.target as HTMLSelectElement;
+  const newBranch = select.value;
 
-  if (!branchName || branchName === currentBranch.value) return;
+  if (newBranch !== currentBranch.value) {
+    const editorStore = useEditorStore();
 
-  loading.value = true;
-  try {
-    const success = await switchBranch(branchName);
-    if (success) {
-      await loadCommits();
+    // Save current content before switching
+    if (props.filePath) {
+      const currentContent = store.rawText;
+      editorStore.saveContent(props.filePath, currentContent);
+    }
+
+    // Switch branch
+    await switchBranch(newBranch);
+
+    // Load content for new branch
+    try {
+      const { content, sha } = await getFileContent(props.filePath, newBranch);
+      if (content) {
+        editorStore.saveGitContent(props.filePath, content, newBranch, sha);
+        // Update the editor content
+        store.rawText = content;
+
+        showToast({
+          title: "Branch Switched",
+          message: `Successfully switched to branch "${newBranch}"`,
+          type: "success",
+        });
+      }
+    } catch (error) {
+      console.error("Error loading content for new branch:", error);
       showToast({
-        title: "Success",
-        message: `Switched to branch: ${branchName}`,
-        type: "success",
+        title: "Error",
+        message: `Failed to load content for branch "${newBranch}"`,
+        type: "error",
       });
     }
-  } catch (error) {
-    console.error("Error switching branch:", error);
-    showToast({
-      title: "Error",
-      message: "Failed to switch branch",
-      type: "error",
-    });
-  } finally {
-    loading.value = false;
   }
 };
 
@@ -470,6 +515,20 @@ const handleResolveConflicts = async (pr: PullRequest) => {
   }
 };
 
+const handleLoadSave = (save) => {
+  console.log("Loading save:", save);
+  if (!save || !save.content) {
+    console.error("Invalid save:", save);
+    showToast({
+      title: "Error",
+      message: "Invalid save content",
+      type: "error",
+    });
+    return;
+  }
+  emit("load-save", save.content);
+};
+
 const formatDate = (dateString: string) => {
   const date = new Date(dateString);
   const now = new Date();
@@ -502,16 +561,16 @@ watch(isLoggedIn, async (newValue) => {
 
 // Watch for active tab changes
 watch(activeTab, async (newTab) => {
-  if (newTab === 'prs') {
+  if (newTab === "prs") {
     await loadPullRequests();
   }
 });
 
 // Refresh PRs periodically when PR tab is active
 watch([activeTab, isLoggedIn], () => {
-  if (activeTab.value === 'prs' && isLoggedIn.value) {
+  if (activeTab.value === "prs" && isLoggedIn.value) {
     const interval = setInterval(async () => {
-      if (activeTab.value === 'prs') {
+      if (activeTab.value === "prs") {
         await loadPullRequests();
       }
     }, 30000); // Refresh every 30 seconds
@@ -952,11 +1011,11 @@ onMounted(async () => {
   color: #374151;
   font-size: 0.875rem;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: opacity 0.2s;
 }
 
 .action-button:hover {
-  background: #f9fafb;
+  opacity: 0.8;
 }
 
 .action-button.delete {

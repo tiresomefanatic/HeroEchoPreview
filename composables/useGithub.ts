@@ -168,18 +168,13 @@ export const useGithub = () => {
   };
 
   // Get file content from GitHub
-  const getFileContent = async (
-    owner: string,
-    repo: string,
-    path: string,
-    branch?: string
-  ) => {
+  const getFileContent = async (path: string, branch?: string) => {
     if (!isLoggedIn.value) {
       throw new Error("Authentication required to get content");
     }
 
     const targetBranch = branch || currentBranch.value;
-    const fileKey = `${owner}/${repo}/${path}/${targetBranch}`;
+    const fileKey = `${config.public.githubOwner}/${config.public.githubRepo}/${path}/${targetBranch}`;
 
     try {
       // If we have the latest content (after a commit), use that
@@ -195,8 +190,8 @@ export const useGithub = () => {
 
       // Otherwise fetch from GitHub
       const { data } = await octokit.rest.repos.getContent({
-        owner,
-        repo,
+        owner: config.public.githubOwner,
+        repo: config.public.githubRepo,
         path,
         ref: targetBranch,
       });
@@ -488,15 +483,15 @@ export const useGithub = () => {
 
       // Get current branch's latest commit
       const { data: currentRef } = await octokit.rest.git.getRef({
-        owner: "tiresomefanatic",
-        repo: "HeroEchoPreview",
+        owner: config.public.githubOwner,
+        repo: config.public.githubRepo,
         ref: `heads/${currentBranch.value}`,
       });
 
       // Create new branch from current branch
       await octokit.rest.git.createRef({
-        owner: "tiresomefanatic",
-        repo: "HeroEchoPreview",
+        owner: config.public.githubOwner,
+        repo: config.public.githubRepo,
         ref: `refs/heads/${branchName}`,
         sha: currentRef.object.sha,
       });
@@ -521,16 +516,16 @@ export const useGithub = () => {
 
     try {
       const { data } = await octokit.rest.pulls.list({
-        owner: "tiresomefanatic",
-        repo: "HeroEchoPreview",
+        owner: config.public.githubOwner,
+        repo: config.public.githubRepo,
         state: "open",
       });
 
       const detailedPRs = await Promise.all(
         data.map(async (pr) => {
           const { data: prDetails } = await octokit.rest.pulls.get({
-            owner: "tiresomefanatic",
-            repo: "HeroEchoPreview",
+            owner: config.public.githubOwner,
+            repo: config.public.githubRepo,
             pull_number: pr.number,
           });
           return prDetails;
@@ -550,8 +545,8 @@ export const useGithub = () => {
 
     try {
       const { data } = await octokit.rest.repos.listCommits({
-        owner: "tiresomefanatic",
-        repo: "HeroEchoPreview",
+        owner: config.public.githubOwner,
+        repo: config.public.githubRepo,
         per_page: 10,
       });
 
@@ -575,13 +570,13 @@ export const useGithub = () => {
       // Validate both branches exist
       try {
         await octokit.rest.repos.getBranch({
-          owner: "tiresomefanatic",
-          repo: "HeroEchoPreview",
+          owner: config.public.githubOwner,
+          repo: config.public.githubRepo,
           branch: base,
         });
         await octokit.rest.repos.getBranch({
-          owner: "tiresomefanatic",
-          repo: "HeroEchoPreview",
+          owner: config.public.githubOwner,
+          repo: config.public.githubRepo,
           branch: head,
         });
       } catch (error) {
@@ -590,8 +585,8 @@ export const useGithub = () => {
       }
 
       const { data } = await octokit.rest.pulls.create({
-        owner: "tiresomefanatic",
-        repo: "HeroEchoPreview",
+        owner: config.public.githubOwner,
+        repo: config.public.githubRepo,
         base,
         head,
         title,
@@ -614,8 +609,8 @@ export const useGithub = () => {
 
     try {
       const { data: pr } = await octokit.rest.pulls.get({
-        owner: "tiresomefanatic",
-        repo: "HeroEchoPreview",
+        owner: config.public.githubOwner,
+        repo: config.public.githubRepo,
         pull_number: prNumber,
       });
 
@@ -627,15 +622,15 @@ export const useGithub = () => {
       let content;
       if (resolution === "ours") {
         content = await getRawContent(
-          "tiresomefanatic",
-          "HeroEchoPreview",
+          config.public.githubOwner,
+          config.public.githubRepo,
           filePath,
           pr.base.ref
         );
       } else {
         content = await getRawContent(
-          "tiresomefanatic",
-          "HeroEchoPreview",
+          config.public.githubOwner,
+          config.public.githubRepo,
           filePath,
           pr.head.ref
         );
@@ -646,8 +641,8 @@ export const useGithub = () => {
       }
 
       await saveFileContent(
-        "tiresomefanatic",
-        "HeroEchoPreview",
+        config.public.githubOwner,
+        config.public.githubRepo,
         filePath,
         content,
         `Resolve conflict in ${filePath} using ${resolution} changes`,
@@ -717,8 +712,8 @@ export const useGithub = () => {
       }
     }
     return {
-      owner: "tiresomefanatic",
-      repo: "HeroEchoPreview",
+      owner: config.public.githubOwner,
+      repo: config.public.githubRepo,
     };
   };
 
@@ -741,6 +736,7 @@ export const useGithub = () => {
     logout: handleLogout,
     isLoggedIn,
     getRawContent,
+    getFileContent,
     saveFileContent,
     getPullRequests: fetchPullRequests,
     getCommits: fetchCommits,
