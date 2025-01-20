@@ -489,14 +489,14 @@ export const useGithub = () => {
       // Get current branch's latest commit
       const { data: currentRef } = await octokit.rest.git.getRef({
         owner: "tiresomefanatic",
-        repo: "heroechotest",
+        repo: "HeroEchoPreview",
         ref: `heads/${currentBranch.value}`,
       });
 
       // Create new branch from current branch
       await octokit.rest.git.createRef({
         owner: "tiresomefanatic",
-        repo: "heroechotest",
+        repo: "HeroEchoPreview",
         ref: `refs/heads/${branchName}`,
         sha: currentRef.object.sha,
       });
@@ -522,7 +522,7 @@ export const useGithub = () => {
     try {
       const { data } = await octokit.rest.pulls.list({
         owner: "tiresomefanatic",
-        repo: "heroechotest",
+        repo: "HeroEchoPreview",
         state: "open",
       });
 
@@ -530,7 +530,7 @@ export const useGithub = () => {
         data.map(async (pr) => {
           const { data: prDetails } = await octokit.rest.pulls.get({
             owner: "tiresomefanatic",
-            repo: "heroechotest",
+            repo: "HeroEchoPreview",
             pull_number: pr.number,
           });
           return prDetails;
@@ -551,7 +551,7 @@ export const useGithub = () => {
     try {
       const { data } = await octokit.rest.repos.listCommits({
         owner: "tiresomefanatic",
-        repo: "heroechotest",
+        repo: "HeroEchoPreview",
         per_page: 10,
       });
 
@@ -576,12 +576,12 @@ export const useGithub = () => {
       try {
         await octokit.rest.repos.getBranch({
           owner: "tiresomefanatic",
-          repo: "heroechotest",
+          repo: "HeroEchoPreview",
           branch: base,
         });
         await octokit.rest.repos.getBranch({
           owner: "tiresomefanatic",
-          repo: "heroechotest",
+          repo: "HeroEchoPreview",
           branch: head,
         });
       } catch (error) {
@@ -591,7 +591,7 @@ export const useGithub = () => {
 
       const { data } = await octokit.rest.pulls.create({
         owner: "tiresomefanatic",
-        repo: "heroechotest",
+        repo: "HeroEchoPreview",
         base,
         head,
         title,
@@ -615,7 +615,7 @@ export const useGithub = () => {
     try {
       const { data: pr } = await octokit.rest.pulls.get({
         owner: "tiresomefanatic",
-        repo: "heroechotest",
+        repo: "HeroEchoPreview",
         pull_number: prNumber,
       });
 
@@ -628,14 +628,14 @@ export const useGithub = () => {
       if (resolution === "ours") {
         content = await getRawContent(
           "tiresomefanatic",
-          "heroechotest",
+          "HeroEchoPreview",
           filePath,
           pr.base.ref
         );
       } else {
         content = await getRawContent(
           "tiresomefanatic",
-          "heroechotest",
+          "HeroEchoPreview",
           filePath,
           pr.head.ref
         );
@@ -647,7 +647,7 @@ export const useGithub = () => {
 
       await saveFileContent(
         "tiresomefanatic",
-        "heroechotest",
+        "HeroEchoPreview",
         filePath,
         content,
         `Resolve conflict in ${filePath} using ${resolution} changes`,
@@ -718,7 +718,7 @@ export const useGithub = () => {
     }
     return {
       owner: "tiresomefanatic",
-      repo: "heroechotest",
+      repo: "HeroEchoPreview",
     };
   };
 

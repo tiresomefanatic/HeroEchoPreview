@@ -155,7 +155,7 @@ const loadGithubContent = async () => {
   try {
     const content = await getRawContent(
       "tiresomefanatic",
-      "heroechotest",
+      "HeroEchoPreview",
       contentPath.value,
       currentBranch.value
     );
@@ -224,7 +224,7 @@ const handleSave = async (content: string) => {
   try {
     const result = await saveFileContent(
       "tiresomefanatic",
-      "heroechotest",
+      "HeroEchoPreview",
       contentPath.value,
       content,
       `Update ${contentPath.value}`,
@@ -316,7 +316,7 @@ onMounted(async () => {
     document.addEventListener("visibilitychange", handleVisibilityChange);
   }
 
-  //const branchesList = await getBranches("tiresomefanatic", "heroechotest");
+  //const branchesList = await getBranches("tiresomefanatic", "HeroEchoPreview");
   // branches.value = branchesList;
 });
 
