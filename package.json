@@ -11,7 +11,7 @@
     "generate": "nuxt generate",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
-    "preinstall": "echo $(date) > .output/build-timestamp"
+    "preinstall": "mkdir -p .output && echo $(date) > .output/build-timestamp"
   },
   "dependencies": {
     "@nuxt/content": "^2.13.4",

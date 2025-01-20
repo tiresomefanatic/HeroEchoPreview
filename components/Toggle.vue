@@ -20,6 +20,7 @@ const switchTheme = ($event: Event) => {
 </template>
 
 <style lang="scss" scoped>
+@use "@/assets/scss/core/_variables.scss" as *;
 svg {
     color: $col-lightCyanBlue;
 }

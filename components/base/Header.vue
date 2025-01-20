@@ -57,6 +57,9 @@ const save = async() => {
 </template>
 
 <style lang="scss" scoped>
+@use "@/assets/scss/utils/_mixins.scss" as *;
+@use "@/assets/scss/main.scss" as *;
+
 header {
     height: 7.2rem;
     justify-content: space-between;
