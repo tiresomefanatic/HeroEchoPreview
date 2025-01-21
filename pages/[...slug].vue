@@ -17,10 +17,7 @@
             <DesignSidebar />
           </aside>
 
-          <div
-            class="main-content flex-1"
-            
-          >
+          <div class="main-content flex-1">
             <!-- Content header with edit controls - only show when logged in -->
             <div
               v-if="isLoggedIn"
@@ -148,6 +145,19 @@ import DesignSidebar from "~/components/DesignSidebar.vue";
 import Header from "~/components/Header.vue";
 import { useRuntimeConfig, useNuxtApp } from "#app";
 import { marked } from "marked";
+<<<<<<< Updated upstream
+=======
+
+// Initialize GitHub functionality and services
+const {
+  getRawContent,
+  saveFileContent,
+  isLoggedIn,
+  currentBranch,
+  getBranches,
+} = useGithub();
+const { showToast } = useToast();
+>>>>>>> Stashed changes
 
 // Initialize GitHub functionality and services
 const { getRawContent, saveFileContent, isLoggedIn, currentBranch } =
@@ -346,6 +356,12 @@ onMounted(async () => {
   if (process.client) {
     document.addEventListener("visibilitychange", handleVisibilityChange);
   }
+<<<<<<< Updated upstream
+=======
+
+  const branchesList = await getBranches("tiresomefanatic", "HeroEchoPreview");
+  branches.value = branchesList;
+>>>>>>> Stashed changes
 });
 
 onBeforeUnmount(() => {
@@ -460,7 +476,6 @@ onBeforeUnmount(() => {
   position: relative;
   width: 100%;
   overflow-x: hidden;
-  padding-bottom: 80px; /* Space for footer */
 }
 
 .content-area {
@@ -469,7 +484,6 @@ onBeforeUnmount(() => {
   min-height: calc(100vh - 64px);
   position: relative;
   width: 100%;
-  padding-bottom: 80px; /* Add padding to prevent footer from covering content */
 }
 
 .content-area.editing-mode {
@@ -490,6 +504,7 @@ onBeforeUnmount(() => {
 .main-content {
   flex: 1;
   min-width: 0; /* Prevent flex item from overflowing */
+  padding: 32px;
   position: relative;
 }
 
