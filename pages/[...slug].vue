@@ -19,7 +19,7 @@
 
           <div
             class="main-content flex-1"
-            :class="{ 'md:ml-64': !isEditing && showSidebar }"
+            
           >
             <!-- Content header with edit controls - only show when logged in -->
             <div
