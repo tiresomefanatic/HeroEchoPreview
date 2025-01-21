@@ -4,7 +4,7 @@
 <strong>aasdsLogossswwwmmsdsad</strong>
 </h1>
 <p>
-Lorem ipsum dolor sit amet consectetur. Et ut ultrices dolor ut. Vitae pharetra rutrum dolor vestibulum pharetra et. Pretium consectetur venenatis lacus quam non ipsum.
+<span style="font-size: 32px">Lorem ipsum dolor sit amet consectetur. Et ut ultrices dolor ut. Vitae pharetra rutrum dolor vestibulum pharetra et. Pretium consectetur venenatis lacus quam non ipsum.</span>
 </p>
 <div style="display: flex; gap: 2rem; margin: 3rem 0;">
 <div style="flex: 1;">
