@@ -499,7 +499,6 @@ onBeforeUnmount(() => {
 .main-content {
   flex: 1;
   min-width: 0; /* Prevent flex item from overflowing */
-  padding: 32px;
   position: relative;
 }
 
