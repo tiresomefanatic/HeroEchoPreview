@@ -130,10 +130,8 @@ const {
   saveFileContent,
   isLoggedIn,
   currentBranch,
-  getBranches,
 } = useGithub();
 const { showToast } = useToast();
-
 // State management
 const loading = ref(false);
 const isEditing = ref(false);
