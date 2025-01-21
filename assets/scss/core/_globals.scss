@@ -3,11 +3,12 @@
 html {
   scroll-behavior: smooth;
   font-size: 62.5%;
+  font-family: "PP Neue Montreal";
 }
 
 body {
-  font-family: $font-roboto;
   font-size: 1.6rem;
+  font-family: "PP Neue Montreal";
 }
 
 ::-webkit-scrollbar {
@@ -30,4 +31,9 @@ html[data-theme="dark"] {
   --text-color: #c1c4cb;
   --sub-text-color: #c1c4cb;
   --header-text-color: #ffffff;
+}
+
+// You might want to add this to ensure wider coverage
+* {
+  font-family: $font-pp-neue-montreal;
 }
