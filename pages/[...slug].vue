@@ -366,30 +366,155 @@ onBeforeUnmount(() => {
 });
 </script>
 
+<style>
+/* Global prose styles - these are essential */
+.prose-content {
+  max-width: 100%;
+  width: 100%;
+  margin: 0;
+  color: #000000;
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.prose-content h1 {
+  font-size: 2em;
+  margin: 1.2em 0 0.6em;
+  font-weight: 600;
+  line-height: 1.2;
+  color: #000000;
+}
+
+.prose-content h2 {
+  font-size: 1.5em;
+  margin: 1em 0 0.5em;
+  font-weight: 600;
+  line-height: 1.3;
+  color: #000000;
+}
+
+.prose-content h3 {
+  font-size: 1.25em;
+  margin: 0.8em 0 0.4em;
+  font-weight: 600;
+  line-height: 1.4;
+  color: #000000;
+}
+
+.prose-content p {
+  margin: 1em 0;
+  color: #000000;
+}
+
+.prose-content ul,
+.prose-content ol {
+  margin: 1em 0;
+  padding-left: 1.5em;
+  color: #000000;
+}
+
+.prose-content li {
+  margin: 0.5em 0;
+}
+
+.prose-content a {
+  color: #4361ee;
+  text-decoration: underline;
+}
+
+.prose-content blockquote {
+  border-left: 4px solid #e5e7eb;
+  margin: 1.5em 0;
+  padding-left: 1em;
+  color: #4b5563;
+}
+
+.prose-content code {
+  background: #f3f4f6;
+  padding: 0.2em 0.4em;
+  border-radius: 4px;
+  font-size: 0.9em;
+  font-family: ui-monospace, monospace;
+}
+
+.prose-content pre {
+  background: #f3f4f6;
+  padding: 1em;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin: 1.5em 0;
+}
+
+.prose-content pre code {
+  background: none;
+  padding: 0;
+  font-size: 0.9em;
+  color: #000000;
+}
+
+.prose-content img {
+  max-width: 100%;
+  height: auto;
+  margin: 1.5em 0;
+}
+
+.prose-content hr {
+  border: 0;
+  border-top: 1px solid #e5e7eb;
+  margin: 2em 0;
+}
+</style>
+
 <style scoped>
 .page-wrapper {
-  @apply min-h-screen bg-white;
+  min-height: 100vh;
+  position: relative;
+  width: 100%;
+  overflow-x: hidden;
 }
 
 .content-area {
-  @apply flex relative pt-16;
+  display: flex;
+  background: white;
+  min-height: calc(100vh - 64px);
+  position: relative;
+  width: 100%;
+}
+
+.content-area.editing-mode {
+  padding: 0;
 }
 
 .sidebar {
-  @apply fixed top-[60px] left-0 bottom-0 w-64 bg-white border-r border-gray-200 overflow-y-auto z-20;
+  width: 280px;
+  flex-shrink: 0;
+  background: white;
+  border-right: 1px solid #e5e7eb;
+  position: sticky;
+  top: 64px;
+  height: calc(100vh - 64px);
+  overflow-y: auto;
 }
 
 .main-content {
-  @apply w-full min-h-[calc(100vh-64px)] transition-all duration-200 ease-in-out;
-  margin-left: 16rem;
+  flex: 1;
+  min-width: 0; /* Prevent flex item from overflowing */
+  padding: 32px;
+  position: relative;
+}
+
+.main-content.with-sidebar {
+  width: calc(100% - 280px);
 }
 
 .content-header {
-  @apply flex justify-end items-center;
-}
-
-.prose-content {
-  @apply px-6 py-8 max-w-[960px] mx-auto;
+  margin: 20px 26px;
+  padding: 4px 8px;
+  display: flex;
+  justify-content: flex-end;
+  background: white;
+  border-bottom: 1px solid #e5e7eb;
+  align-items: start;
 }
 
 .markdown-content {
@@ -397,7 +522,13 @@ onBeforeUnmount(() => {
 }
 
 .editor-container {
-  @apply h-[calc(100vh-200px)];
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  min-height: calc(100vh - 200px);
+  margin: 0;
+  padding: 20px;
+  width: 100%;
 }
 
 .branch-select-wrapper {
@@ -430,7 +561,7 @@ onBeforeUnmount(() => {
 .branch-select:disabled {
   background-color: #f3f4f6;
   cursor: not-allowed;
-}
+  }
 
 .loading-indicator {
   position: absolute;
