@@ -86,7 +86,7 @@
                   <template v-if="!isLoggedIn">
                     <ContentDoc :path="path" :head="false">
                       <template #empty>
-                        <p>No content found.</p>
+                        <p>Loading...</p>
                       </template>
                       <template #not-found>
                         <p>Content not found. Path: {{ path }}</p>
