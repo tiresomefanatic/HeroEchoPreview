@@ -131,6 +131,3 @@
   
   </div>
 </div>
- <div style="background: #1D1B1B; padding: 32px 32px 32px 32px; max-height: 80px; display:flex; justify-content: center; align-items: center; width: 100%; height: 100%;">
-  <h1 style="color: white; font-size: 14px; font-style: normal; font-weight: 400; line-height: 142%;">©2024 ECHO </h1>
-  </div>
