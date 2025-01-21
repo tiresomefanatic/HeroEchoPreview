@@ -84,8 +84,8 @@ export default defineNuxtConfig({
     },
     public: {
       githubClientId: process.env.NUXT_PUBLIC_GITHUB_CLIENT_ID,
-      siteUrl: process.env.VERCEL_URL
-        ? `https://${process.env.VERCEL_URL}`
+      siteUrl: process.env.NUXT_PUBLIC_SITE_URL
+        ? `https://${process.env.NUXT_PUBLIC_SITE_URL}`
         : process.env.NUXT_PUBLIC_SITE_URL || "http://localhost:3000",
       githubOwner: "tiresomefanatic",
       githubRepo: "HeroEchoPreview",
@@ -131,6 +131,6 @@ export default defineNuxtConfig({
 
   // Add this to suppress TypeScript errors (fix build erros)
   typescript: {
-    strict: false
+    strict: false,
   },
 });

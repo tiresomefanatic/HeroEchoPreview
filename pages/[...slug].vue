@@ -145,8 +145,6 @@ import DesignSidebar from "~/components/DesignSidebar.vue";
 import Header from "~/components/Header.vue";
 import { useRuntimeConfig, useNuxtApp } from "#app";
 import { marked } from "marked";
-<<<<<<< Updated upstream
-=======
 
 // Initialize GitHub functionality and services
 const {
@@ -154,14 +152,9 @@ const {
   saveFileContent,
   isLoggedIn,
   currentBranch,
-  getBranches,
+  fetchBranches,
+  branches, // This will be used instead of the local ref
 } = useGithub();
-const { showToast } = useToast();
->>>>>>> Stashed changes
-
-// Initialize GitHub functionality and services
-const { getRawContent, saveFileContent, isLoggedIn, currentBranch } =
-  useGithub();
 const { showToast } = useToast();
 // State management
 const loading = ref(false);
@@ -170,7 +163,6 @@ const githubContent = ref("");
 const editorContent = ref("");
 const contentKey = ref(0);
 const contentLastModified = ref<string | null>(null);
-const branches = ref<string[]>([]);
 
 // Route handling setup
 const route = useRoute();
@@ -356,12 +348,6 @@ onMounted(async () => {
   if (process.client) {
     document.addEventListener("visibilitychange", handleVisibilityChange);
   }
-<<<<<<< Updated upstream
-=======
-
-  const branchesList = await getBranches("tiresomefanatic", "HeroEchoPreview");
-  branches.value = branchesList;
->>>>>>> Stashed changes
 });
 
 onBeforeUnmount(() => {
