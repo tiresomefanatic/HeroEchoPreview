@@ -427,7 +427,12 @@ const handleBranchChange = async (event: Event) => {
 
     // Load content for new branch
     try {
-      const { content, sha } = await getFileContent(props.filePath, newBranch);
+      const { content, sha } = await getFileContent(
+        "tiresomefanatic",
+        "HeroEchoPreview",
+        props.filePath,
+        newBranch
+      );
       if (content) {
         editorStore.saveGitContent(props.filePath, content, newBranch, sha);
         // Update the editor content

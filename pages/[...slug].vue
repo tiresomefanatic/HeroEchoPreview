@@ -27,12 +27,11 @@
               class="content-header fixed top-[76px] right-6 z-10 flex items-center gap-3"
             >
               <ClientOnly>
-                <div class="branch-select-wrapper">
+                <div v-if="branches.length > 0" class="branch-select-wrapper">
                   <select
-                    :value="currentBranch"
+                    v-model="currentBranch"
                     @change="handleBranchChange"
-                    class="branch-select"
-                    :disabled="loading"
+                    class="branch-select px-3 py-2 bg-white border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option
                       v-for="branch in branches"
@@ -42,7 +41,6 @@
                       {{ branch }}
                     </option>
                   </select>
-                  <div v-if="loading" class="loading-indicator"></div>
                 </div>
                 <button
                   v-if="!isEditing"
@@ -65,15 +63,15 @@
             <!-- Main content area -->
             <ClientOnly>
               <div v-if="isEditing" class="editor-container mt-4">
-                <!-- <TiptapEditor
-                  :content="editorContent"
+                <!-- <Editor
+                  :content="editorContent.toString()"
                   :filePath="contentPath"
                   @update:content="handleContentChange"
                   @save="handleSave"
                   @error="handleEditorError"
                 /> -->
-                <Editor
-                  :content="editorContent.toString()"
+                <TiptapEditor
+                  :content="editorContent"
                   :filePath="contentPath"
                   @update:content="handleContentChange"
                   @save="handleSave"
@@ -125,14 +123,14 @@ import DesignSidebar from "~/components/DesignSidebar.vue";
 import Header from "~/components/Header.vue";
 import { useRuntimeConfig, useNuxtApp } from "#app";
 import { marked } from "marked";
-import TiptapEditor from "~/components/TiptapEditor.vue";
+
 // Initialize GitHub functionality and services
 const {
   getRawContent,
   saveFileContent,
   isLoggedIn,
   currentBranch,
-  switchBranch,
+  getBranches,
 } = useGithub();
 const { showToast } = useToast();
 
@@ -292,33 +290,8 @@ const handleLoadSave = (content: string) => {
   isEditing.value = true; // Switch to edit mode to show the loaded content
 };
 
-const handleBranchChange = async (event: Event) => {
-  const target = event.target as HTMLSelectElement;
-  const branchName = target.value;
-
-  if (!branchName || branchName === currentBranch.value) return;
-
-  loading.value = true;
-  try {
-    const success = await switchBranch(branchName);
-    if (success) {
-      await loadGithubContent();
-      showToast({
-        title: "Success",
-        message: `Switched to branch: ${branchName}`,
-        type: "success",
-      });
-    }
-  } catch (error) {
-    console.error("Error switching branch:", error);
-    showToast({
-      title: "Error",
-      message: "Failed to switch branch",
-      type: "error",
-    });
-  } finally {
-    loading.value = false;
-  }
+const handleBranchChange = async () => {
+  await loadGithubContent();
 };
 
 // Watch for editing mode changes
@@ -355,8 +328,8 @@ onMounted(async () => {
     document.addEventListener("visibilitychange", handleVisibilityChange);
   }
 
-  //const branchesList = await getBranches("tiresomefanatic", "HeroEchoPreview");
-  // branches.value = branchesList;
+  const branchesList = await getBranches("tiresomefanatic", "HeroEchoPreview");
+  branches.value = branchesList;
 });
 
 onBeforeUnmount(() => {
@@ -499,6 +472,7 @@ onBeforeUnmount(() => {
 .main-content {
   flex: 1;
   min-width: 0; /* Prevent flex item from overflowing */
+  padding: 32px;
   position: relative;
 }
 
@@ -560,7 +534,7 @@ onBeforeUnmount(() => {
 .branch-select:disabled {
   background-color: #f3f4f6;
   cursor: not-allowed;
-  }
+}
 
 .loading-indicator {
   position: absolute;

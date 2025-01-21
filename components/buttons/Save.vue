@@ -3,7 +3,11 @@ defineEmits(["save-changes"]);
 </script>
 
 <template>
-  <button class="d-flex align-items-center gap-3 weight-300" type="button" @click="$emit('save-changes')">
+  <button
+    class="d-flex align-items-center gap-3 weight-300"
+    type="button"
+    @click="$emit('save-changes')"
+  >
     <IconsSave class="icon" />
     <span>Save Changes</span>
   </button>
@@ -12,7 +16,7 @@ defineEmits(["save-changes"]);
 <style lang="scss" scoped>
 @use "@/assets/scss/main.scss" as *;
 button {
-  @include font(1.5rem, 1.8rem);
+  //@include font(1.5rem, 1.8rem);
   color: $col-white;
   background-color: $col-redOrange;
   padding: 1.1rem 1.7rem;
@@ -29,7 +33,7 @@ button {
 
   span {
     white-space: nowrap;
-    
+
     @media (max-width: 550px) {
       display: none;
     }

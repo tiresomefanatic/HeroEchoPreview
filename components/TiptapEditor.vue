@@ -16,9 +16,11 @@ import { useToast } from "~/composables/useToast";
 import { useNuxtApp } from "#app";
 import AddContentDialog from "./AddContentDialog.vue";
 import type { editor as MonacoEditor } from "monaco-editor";
-import { useEditorStore } from "~/stores/editor";
+import { useEditorStore } from "~/store/editor";
 import { TextSelection } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
+import { useStore } from "~/store";
+import { storeToRefs } from "pinia";
 
 interface Props {
   content?: string;
@@ -92,14 +94,15 @@ const handleInsertSection = (sectionId: string) => {
 };
 
 const props = defineProps<Props>();
+
 const emit = defineEmits<{
-  (e: "update:content", value: string): void;
-  (e: "save", value: string): void;
-  (e: "error", error: Error): void;
+  "update:content": [content: string];
+  save: [content: string];
+  error: [error: Error];
 }>();
 
 // State management
-const localContent = ref("");
+const localContent = ref(props.content || "");
 const originalContent = ref("");
 const isSaving = ref(false);
 const previewMode = ref(false);
@@ -108,12 +111,22 @@ const editor = ref<Editor | null>(null);
 const editorInitialized = ref(false);
 const previewContent = ref("");
 const monacoEditor = ref<any>(null);
+const showCommitDialog = ref(false);
+const commitMessage = ref("");
+const isCommitting = ref(false);
 
-// Initialize composables
-const { showToast } = useToast();
-const github = useGithub();
-const { isLoggedIn } = github;
+// Store setup
+const store = useStore();
+const { rawText, isPreviewActive } = storeToRefs(store);
 const editorStore = useEditorStore();
+const {
+  getFileContent,
+  currentBranch,
+  saveFileContent,
+  fetchBranches,
+  isLoggedIn,
+} = useGithub();
+const { showToast } = useToast();
 
 // Node extensions with style support
 const StyledDiv = Node.create({
@@ -180,28 +193,7 @@ const GridContainer = Node.create({
   },
 });
 
-// Save functionality
-const saveToLocal = () => {
-  if (!hasChanges.value || isSaving.value) return;
-  editorStore.saveContent(props.filePath, localContent.value);
-  showToast({
-    title: "Success",
-    message: "Content saved locally",
-    type: "success",
-  });
-};
-
-const loadSavedVersion = (content: string) => {
-  if (editor.value) {
-    editor.value.commands.setContent(content);
-    localContent.value = content;
-    previewContent.value = content;
-  }
-};
-
-/**
- * Helper function to normalize HTML content by handling HTML entities consistently
- */
+// Format and parse functions
 const normalizeHTML = (html: string): string => {
   const div = document.createElement("div");
   div.innerHTML = html;
@@ -258,6 +250,7 @@ const parseMarkdownToHTML = (content: string): string => {
     );
 };
 
+// Monaco editor options
 const editorOptions = {
   theme: "vs",
   language: "html",
@@ -311,6 +304,135 @@ const editorOptions = {
   },
 };
 
+// Computed properties
+const showCommitButton = computed(() => {
+  return props.filePath && currentBranch.value;
+});
+
+const hasChanges = computed(() => {
+  if (!props.filePath) return false;
+  const gitContent = editorStore.getCurrentGitContent(props.filePath);
+  return gitContent
+    ? localContent.value !== gitContent.content
+    : localContent.value !== "";
+});
+
+// Save and commit handlers
+const handleSave = () => {
+  if (!props.filePath) return;
+
+  // Format the content before saving
+  const formattedContent = formatHTML(localContent.value);
+  console.log("Editor saving content - Length:", formattedContent.length);
+  console.log("Preview:", formattedContent.substring(0, 100) + "...");
+
+  // Save formatted content to Pinia store
+  editorStore.saveContent(props.filePath, formattedContent);
+
+  // Update store's raw text
+  store.updateRawText(formattedContent);
+
+  // Also save current content to localStorage for recovery
+  localStorage.setItem("rawText", JSON.stringify(formattedContent));
+
+  showToast({
+    title: "Changes Saved",
+    message: "Successfully saved changes",
+    type: "success",
+  });
+};
+
+const saveToLocal = () => {
+  if (!hasChanges.value || isSaving.value) return;
+  editorStore.saveContent(props.filePath, localContent.value);
+  showToast({
+    title: "Success",
+    message: "Content saved locally",
+    type: "success",
+  });
+};
+
+const handleCommit = async () => {
+  if (!props.filePath || !commitMessage.value.trim()) return;
+
+  isCommitting.value = true;
+  try {
+    await saveFileContent(
+      "tiresomefanatic",
+      "HeroEchoPreview",
+      props.filePath,
+      localContent.value,
+      commitMessage.value.trim(),
+      currentBranch.value
+    );
+
+    // Update git content in store
+    editorStore.updateContent(props.filePath, localContent.value);
+
+    showToast({
+      title: "Success",
+      message: "Changes committed successfully",
+      type: "success",
+    });
+
+    showCommitDialog.value = false;
+    commitMessage.value = "";
+  } catch (error) {
+    console.error("Commit error:", error);
+    const errorMessage =
+      error.status === 409
+        ? "File was modified elsewhere. Please try committing again."
+        : error.message || "Failed to commit changes";
+
+    showToast({
+      title: "Error",
+      message: errorMessage,
+      type: "error",
+      duration: 5000,
+    });
+  } finally {
+    isCommitting.value = false;
+  }
+};
+
+const handleLoadSave = async (content: string) => {
+  console.log("Editor received content - Length:", content?.length);
+  console.log("Preview:", content?.substring(0, 100) + "...");
+
+  if (!content) {
+    console.error("Empty content received");
+    showToast({
+      title: "Error",
+      message: "No content to load",
+      type: "error",
+    });
+    return;
+  }
+
+  try {
+    editorStore.updateContent(props.filePath || "", content);
+    if (editor.value) {
+      editor.value.commands.setContent(content);
+    }
+    localContent.value = content;
+
+    await nextTick();
+
+    showToast({
+      title: "Save Loaded",
+      message: "Successfully loaded saved version",
+      type: "success",
+    });
+  } catch (error) {
+    console.error("Error loading content:", error);
+    showToast({
+      title: "Error",
+      message: "Failed to load content",
+      type: "error",
+    });
+  }
+};
+
 const handleRawContentChange = (value: string) => {
   if (!value) return;
   localContent.value = value;
@@ -318,44 +440,57 @@ const handleRawContentChange = (value: string) => {
   emit("update:content", value);
 };
 
-// Watch raw mode changes
+// Watch for content changes
+watch(
+  () => rawText.value,
+  (newContent) => {
+    if (newContent && editor.value && newContent !== localContent.value) {
+      console.log("rawText changed, updating localContent:", newContent.length);
+      const formattedContent = formatHTML(newContent);
+      editor.value.commands.setContent(formattedContent);
+      localContent.value = formattedContent;
+    }
+  }
+);
+
+watch(
+  () => editorStore.getCurrentGitContent(props.filePath || "")?.content,
+  (newContent) => {
+    if (newContent && editor.value) {
+      console.log("Git content updated:", newContent.substring(0, 100) + "...");
+      editor.value.commands.setContent(newContent);
+      localContent.value = newContent;
+    }
+  }
+);
+
+// Watch for raw mode changes
 watch(rawMode, (newValue) => {
   if (editor.value) {
     if (!newValue) {
-      // When switching from raw mode back to normal mode
-      editor.value.commands.setContent(localContent.value, false);
-      previewContent.value = localContent.value;
-    } else {
-      // When switching to raw mode, ensure Monaco editor gets latest content
-      nextTick(() => {
-        if (monacoEditor.value) {
-          monacoEditor.value.setValue(localContent.value);
-        }
-      });
+      // When switching from raw mode back to normal mode, format the content
+      const formattedContent = formatHTML(localContent.value);
+      editor.value.commands.setContent(formattedContent, false);
+      previewContent.value = formattedContent;
+      localContent.value = formattedContent;
     }
   }
 });
 
 // Watch content prop changes
-watch(
-  () => props.content,
-  (newContent) => {
-    if (!editor.value || newContent === undefined) return;
+watchEffect(() => {
+  if (localContent.value !== "") {
+    emit("update:content", localContent.value);
+  }
+});
 
-    const parsedContent = parseMarkdownToHTML(newContent);
-
-    // Only update if content actually changed
-    if (parsedContent !== localContent.value) {
-      editor.value.commands.setContent(parsedContent, false);
-      localContent.value = parsedContent;
-      previewContent.value = parsedContent;
-    }
-  },
-  { deep: true }
-);
-
-onMounted(() => {
+// Initialize
+onMounted(async () => {
   editorStore.loadSaves();
+
+  if (isLoggedIn.value) {
+    await fetchBranches();
+  }
 
   editor.value = new Editor({
     extensions: [
@@ -549,12 +684,12 @@ onMounted(() => {
           targetDepth--;
         }
 
-        const content = ed.getHTML();
+        const content = formatHTML(ed.getHTML());
         localContent.value = content;
         previewContent.value = content;
         emit("update:content", content);
       } else {
-        const content = ed.getHTML();
+        const content = formatHTML(ed.getHTML());
         localContent.value = content;
         previewContent.value = content;
         emit("update:content", content);
@@ -565,12 +700,17 @@ onMounted(() => {
     },
   });
 
+  // Initialize editor content with formatting
   if (props.content) {
-    const parsedContent = parseMarkdownToHTML(props.content);
-    editor.value.commands.setContent(parsedContent, false);
-    localContent.value = parsedContent;
-    originalContent.value = parsedContent;
-    previewContent.value = parsedContent;
+    const formattedContent = formatHTML(props.content);
+    editor.value.commands.setContent(formattedContent);
+    localContent.value = formattedContent;
+    originalContent.value = formattedContent;
+  } else if (rawText.value) {
+    const formattedContent = formatHTML(rawText.value);
+    editor.value.commands.setContent(formattedContent);
+    localContent.value = formattedContent;
+    originalContent.value = formattedContent;
   }
 
   editorInitialized.value = true;
@@ -588,73 +728,7 @@ onMounted(() => {
   }
 });
 
-onBeforeUnmount(() => {
-  const editorContent = document.querySelector(".editor-content");
-  if (editorContent) {
-    editorContent.removeEventListener("scroll", () => {});
-  }
-});
-
-// Handle raw content changes
-const deleteSavedVersion = (timestamp: string) => {
-  editorStore.deleteSave(props.filePath, timestamp);
-};
-
-// Watch raw mode changes
-watch(rawMode, (newValue) => {
-  if (editor.value) {
-    if (!newValue) {
-      // When switching from raw mode back to normal mode
-      editor.value.commands.setContent(localContent.value, false);
-      previewContent.value = localContent.value;
-    }
-  }
-});
-
-const hasChanges = computed(() => {
-  return localContent.value !== originalContent.value;
-});
-
-const saveToDisk = async () => {
-  if (!hasChanges.value || isSaving.value) return;
-
-  isSaving.value = true;
-  try {
-    if (!isLoggedIn.value) {
-      throw new Error("Please log in to GitHub first");
-    }
-
-    if (process.client) {
-      const nuxtApp = useNuxtApp();
-      const storage = nuxtApp.$content?.storage;
-      if (storage) {
-        await storage.clearAll();
-      }
-    }
-
-    emit("save", localContent.value);
-    originalContent.value = localContent.value;
-  } catch (error) {
-    console.error("Save error:", error);
-    showToast({
-      title: "Error",
-      message:
-        error instanceof Error ? error.message : "Failed to save changes",
-      type: "error",
-    });
-    emit("error", error as Error);
-  } finally {
-    isSaving.value = false;
-  }
-};
-
-const handleLoadSave = (content: string) => {
-  if (editor.value) {
-    editor.value.commands.setContent(content);
-    localContent.value = content;
-  }
-};
-
+// Cleanup
 onBeforeUnmount(() => {
   if (editor.value) {
     editor.value.destroy();
@@ -662,19 +736,16 @@ onBeforeUnmount(() => {
   if (monacoEditor.value) {
     monacoEditor.value.dispose();
   }
+  const editorContent = document.querySelector(".editor-content");
+  if (editorContent) {
+    editorContent.removeEventListener("scroll", () => {});
+  }
 });
 </script>
 
 <template>
   <div class="editor-wrapper">
-    <div v-if="!isLoggedIn" class="login-prompt">
-      <p class="login-message">Please sign in with GitHub to edit this file</p>
-      <button @click="github.login" class="login-button">
-        Sign in with GitHub
-      </button>
-    </div>
-
-    <div v-else class="editor-layout">
+    <div class="editor-layout">
       <div class="editor-main">
         <div class="editor-toolbar">
           <div class="toolbar-left">
@@ -691,18 +762,22 @@ onBeforeUnmount(() => {
                 Preview
               </button>
               <button
-                v-if="hasChanges && !isSaving"
+                v-if="showCommitButton && hasChanges"
                 class="toolbar-button primary"
-                @click="saveToDisk"
+                @click="() => (showCommitDialog = true)"
+                :title="
+                  hasChanges ? 'Commit your changes' : 'No changes to commit'
+                "
               >
                 Commit Changes
               </button>
               <button
-                v-if="hasChanges && !isSaving"
+                v-if="hasChanges"
                 class="toolbar-button primary"
-                @click="saveToLocal"
+                @click="handleSave"
+                :title="hasChanges ? 'Save your changes' : 'No changes to save'"
               >
-                Save Locally
+                Save
               </button>
             </template>
 
@@ -711,28 +786,22 @@ onBeforeUnmount(() => {
               <button class="toolbar-button" @click="rawMode = false">
                 Normal
               </button>
-              <button
-                class="toolbar-button"
-                @click="
-                  previewMode = true;
-                  rawMode = false;
-                "
-              >
+              <button class="toolbar-button" @click="previewMode = true">
                 Preview
               </button>
               <button
-                v-if="hasChanges && !isSaving"
+                v-if="showCommitButton && hasChanges"
                 class="toolbar-button primary"
-                @click="saveToDisk"
+                @click="() => (showCommitDialog = true)"
               >
                 Commit Changes
               </button>
               <button
-                v-if="hasChanges && !isSaving"
+                v-if="hasChanges"
                 class="toolbar-button primary"
-                @click="saveToLocal"
+                @click="handleSave"
               >
-                Save Locally
+                Save
               </button>
             </template>
 
@@ -742,24 +811,20 @@ onBeforeUnmount(() => {
                 Edit
               </button>
               <button
-                v-if="hasChanges && !isSaving"
+                v-if="showCommitButton && hasChanges"
                 class="toolbar-button primary"
-                @click="saveToDisk"
+                @click="() => (showCommitDialog = true)"
               >
                 Commit Changes
               </button>
               <button
-                v-if="hasChanges && !isSaving"
+                v-if="hasChanges"
                 class="toolbar-button primary"
-                @click="saveToLocal"
+                @click="handleSave"
               >
-                Save Locally
+                Save
               </button>
             </template>
-
-            <button v-if="isSaving" class="toolbar-button loading" disabled>
-              Saving...
-            </button>
           </div>
         </div>
 
@@ -837,9 +902,42 @@ onBeforeUnmount(() => {
       </div>
 
       <CollaborationSidebar
+        v-if="props.filePath"
         :filePath="props.filePath"
         @load-save="handleLoadSave"
       />
+    </div>
+
+    <!-- Commit Dialog -->
+    <div v-if="showCommitDialog" class="commit-dialog">
+      <div class="commit-dialog-content">
+        <h3>Commit Changes</h3>
+        <div class="commit-form">
+          <textarea
+            v-model="commitMessage"
+            placeholder="Enter commit message..."
+            rows="3"
+            class="commit-message-input"
+            :disabled="isCommitting"
+          ></textarea>
+          <div class="commit-actions">
+            <button
+              class="cancel-button"
+              @click="showCommitDialog = false"
+              :disabled="isCommitting"
+            >
+              Cancel
+            </button>
+            <button
+              class="commit-button"
+              @click="handleCommit"
+              :disabled="!commitMessage.trim() || isCommitting"
+            >
+              {{ isCommitting ? "Committing..." : "Commit" }}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -944,31 +1042,6 @@ onBeforeUnmount(() => {
   font-size: 0.875rem;
 }
 
-.login-prompt {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1rem;
-  padding: 2rem;
-  background: #1e1e1e;
-  color: #cccccc;
-}
-
-.login-button {
-  padding: 0.5rem 1rem;
-  border: 1px solid #3c3c3c;
-  border-radius: 4px;
-  background: #252526;
-  color: #cccccc;
-  cursor: pointer;
-  font-size: 0.875rem;
-  transition: all 0.2s ease;
-}
-
-.login-button:hover {
-  background: #2d2d2d;
-}
-
 .raw-content-wrapper {
   flex: 1;
   display: flex;
@@ -981,9 +1054,10 @@ onBeforeUnmount(() => {
 .monaco-editor {
   width: 100%;
   height: 100%;
+  min-height: calc(100vh - 120px); /* Ensure editor has enough height */
 }
 
-/* Only apply minimal styling to preserve inline styles */
+/* Prose Mirror Styles */
 .ProseMirror {
   flex: 1;
   outline: none;
@@ -1022,5 +1096,94 @@ onBeforeUnmount(() => {
 .content-wrapper {
   padding: 1rem;
   min-height: 100%;
+}
+
+/* Commit Dialog Styles */
+.commit-dialog {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.commit-dialog-content {
+  background: white;
+  padding: 2rem;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 500px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.commit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.commit-message-input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 1rem;
+  resize: vertical;
+}
+
+.commit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+}
+
+.commit-button,
+.cancel-button {
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  font-size: 1rem;
+  cursor: pointer;
+  border: none;
+}
+
+.commit-button {
+  background: #4caf50;
+  color: white;
+}
+
+.commit-button:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+.cancel-button {
+  background: #f5f5f5;
+  color: #333;
+}
+
+.cancel-button:hover {
+  background: #e5e5e5;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+  .tiptap-toolbar {
+    flex-wrap: wrap;
+  }
+
+  .toolbar-button {
+    font-size: 0.75rem;
+    padding: 0.375rem 0.75rem;
+  }
+
+  .commit-dialog-content {
+    width: 95%;
+    padding: 1rem;
+  }
 }
 </style>

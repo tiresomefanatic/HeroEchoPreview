@@ -29,7 +29,6 @@
           <i class="fas fa-code-commit"></i>
           Commit
         </button>
-        <ImageUploader @uploaded="handleImageUploaded" />
       </div>
     </div>
 
@@ -88,7 +87,6 @@
 <script setup lang="ts">
 import Preview from "./Preview.vue";
 import CollaborationSidebar from "../CollaborationSidebar.vue";
-import ImageUploader from "../ImageUploader.vue";
 import { ref, computed, watchEffect, watch, onMounted, nextTick } from "vue";
 import { storeToRefs } from "pinia";
 import { useStore } from "~/store";
@@ -110,7 +108,7 @@ const emit = defineEmits<{
 const store = useStore();
 const { rawText, isPreviewActive } = storeToRefs(store);
 const editorStore = useEditorStore();
-const { fetchFileContent, currentBranch, saveFileContent } = useGithub();
+const { getFileContent, currentBranch, saveFileContent } = useGithub();
 const { showToast } = useToast();
 
 // Local content management
@@ -176,34 +174,6 @@ const handleCommit = async () => {
 };
 
 const editorKey = ref(0); // Add key to force re-render
-
-const editorTextarea = ref<HTMLTextAreaElement | null>(null);
-
-// Function to insert text at cursor position
-const insertAtCursor = (text: string) => {
-  const textarea = editorTextarea.value;
-  if (!textarea) return;
-
-  const startPos = textarea.selectionStart;
-  const endPos = textarea.selectionEnd;
-  const textBefore = textarea.value.substring(0, startPos);
-  const textAfter = textarea.value.substring(endPos);
-
-  localContent.value = textBefore + text + textAfter;
-
-  // Set cursor position after the inserted text
-  nextTick(() => {
-    textarea.focus();
-    const newCursorPos = startPos + text.length;
-    textarea.setSelectionRange(newCursorPos, newCursorPos);
-  });
-};
-
-// Handle uploaded image
-const handleImageUploaded = (imageUrl: string) => {
-  const imgTag = `<div><img src="${imageUrl}" alt="Uploaded Image" style="max-width: 100%; height: auto;" /></div>`;
-  insertAtCursor(imgTag);
-};
 
 // Watch for content prop changes
 watch(
@@ -320,7 +290,7 @@ const loadContent = async () => {
   if (!props.filePath) return;
 
   try {
-    const { content } = await fetchFileContent(
+    const { content } = await getFileContent(
       "tiresomefanatic",
       "HeroEchoPreview",
       props.filePath,
@@ -346,102 +316,8 @@ Markdown is a lightweight markup language that you can use to add formatting ele
 .editor-container {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 60px); /* Adjust for header height */
-  width: 100%;
-  position: relative;
-  overflow: hidden;
-}
-
-.editor-header {
-  position: sticky;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 10;
-  height: 40px;
-  background-color: var(--deeper-bg-color);
-  border-bottom: 1px solid var(--border-color);
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  padding: 0 16px;
-}
-
-.editor-layout {
-  flex: 1;
-  display: flex;
-  overflow: hidden;
-  position: relative;
-  height: calc(100% - 40px); /* Subtract header height */
-}
-
-.editor-content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  position: relative;
   height: 100%;
-}
-
-.editor-pane,
-.preview-pane {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  padding: 1rem;
-  overflow-y: auto;
-  background-color: var(--bg-color);
-}
-
-.editor__area {
-  width: 100%;
-  height: 100%;
-  min-height: 100%;
-  border: none;
-  background-color: var(--bg-color);
-  color: var(--text-color);
-  font-family: "Monaco", monospace;
-  font-size: 14px;
-  line-height: 1.5;
-  padding: 1rem;
-  resize: none;
-  outline: none;
-}
-
-.header-actions {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-.header-button {
-  height: 28px;
-  padding: 0 12px;
-  background: none;
-  border: 1px solid var(--border-color);
-  cursor: pointer;
-  color: var(--text-color);
-  border-radius: 4px;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  transition: all 0.2s ease;
-
-  &:hover {
-    background-color: var(--hover-color);
-  }
-
-  &.active {
-    color: var(--text-color);
-    background-color: var(--hover-color);
-  }
-
-  i {
-    font-size: 14px;
-  }
+  position: relative;
 }
 
 .commit-dialog {
@@ -519,5 +395,83 @@ Markdown is a lightweight markup language that you can use to add formatting ele
 
 .cancel-button:hover {
   background: #e5e5e5;
+}
+
+.editor-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  height: 24px;
+  background-color: var(--deeper-bg-color);
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 8px;
+}
+
+.header-button {
+  height: 18px;
+  line-height: 18px;
+  padding: 0 6px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--sub-text-color);
+  border-radius: 3px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+
+  &:hover {
+    background-color: var(--hover-color);
+  }
+
+  &.active {
+    color: var(--text-color);
+    background-color: var(--hover-color);
+  }
+
+  i {
+    font-size: 12px;
+  }
+}
+
+.editor-layout {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+.editor-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.editor-pane,
+.preview-pane {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0.5rem;
+  overflow-y: auto;
+}
+
+.editor__area {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  font-family: "Monaco", monospace;
+  font-size: 12px;
+  line-height: 1.4;
+  resize: none;
+  outline: none;
 }
 </style>
