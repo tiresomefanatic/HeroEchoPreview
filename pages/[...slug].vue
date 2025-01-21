@@ -326,8 +326,6 @@ onMounted(async () => {
     document.addEventListener("visibilitychange", handleVisibilityChange);
   }
 
-  const branchesList = await getBranches("tiresomefanatic", "HeroEchoPreview");
-  branches.value = branchesList;
 });
 
 onBeforeUnmount(() => {
