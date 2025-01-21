@@ -106,6 +106,11 @@
         </div>
       </div>
     </ClientOnly>
+
+    <!-- Footer section -->
+    <div class="page-footer" style="background: #1D1B1B; padding: 32px; max-height: 80px; display: flex; justify-content: center; align-items: center;">
+      <h1 style="color: white; font-size: 14px; font-style: normal; font-weight: 400; line-height: 142%;">©2024 ECHO</h1>
+    </div>
   </div>
 </template>
 
@@ -440,6 +445,7 @@ onBeforeUnmount(() => {
   position: relative;
   width: 100%;
   overflow-x: hidden;
+  padding-bottom: 80px; /* Space for footer */
 }
 
 .content-area {
@@ -448,6 +454,7 @@ onBeforeUnmount(() => {
   min-height: calc(100vh - 64px);
   position: relative;
   width: 100%;
+  padding-bottom: 80px; /* Add padding to prevent footer from covering content */
 }
 
 .content-area.editing-mode {
@@ -573,5 +580,13 @@ onBeforeUnmount(() => {
   .sidebar.active {
     transform: translateX(0);
   }
+}
+
+.page-footer {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
 }
 </style>
