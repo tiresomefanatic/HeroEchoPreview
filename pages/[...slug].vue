@@ -108,8 +108,28 @@
     </ClientOnly>
 
     <!-- Footer section -->
-    <div class="page-footer" style="background: #1D1B1B; padding: 32px; max-height: 80px; display: flex; justify-content: center; align-items: center;">
-      <h1 style="color: white; font-size: 14px; font-style: normal; font-weight: 400; line-height: 142%;">©2024 ECHO</h1>
+    <div
+      class="page-footer"
+      style="
+        background: #1d1b1b;
+        padding: 32px;
+        max-height: 80px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      "
+    >
+      <h1
+        style="
+          color: white;
+          font-size: 14px;
+          font-style: normal;
+          font-weight: 400;
+          line-height: 142%;
+        "
+      >
+        ©2024 ECHO
+      </h1>
     </div>
   </div>
 </template>
@@ -130,12 +150,8 @@ import { useRuntimeConfig, useNuxtApp } from "#app";
 import { marked } from "marked";
 
 // Initialize GitHub functionality and services
-const {
-  getRawContent,
-  saveFileContent,
-  isLoggedIn,
-  currentBranch,
-} = useGithub();
+const { getRawContent, saveFileContent, isLoggedIn, currentBranch } =
+  useGithub();
 const { showToast } = useToast();
 // State management
 const loading = ref(false);
@@ -330,7 +346,6 @@ onMounted(async () => {
   if (process.client) {
     document.addEventListener("visibilitychange", handleVisibilityChange);
   }
-
 });
 
 onBeforeUnmount(() => {

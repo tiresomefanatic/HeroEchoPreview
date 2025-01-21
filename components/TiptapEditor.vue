@@ -22,6 +22,9 @@ import type { EditorView } from "@tiptap/pm/view";
 import { useStore } from "~/store";
 import { storeToRefs } from "pinia";
 
+import { FontSize, fontSizeOptions } from "~/extensions/fontSizeExtension";
+import TextStyle from "@tiptap/extension-text-style";
+
 interface Props {
   content?: string;
   filePath: string;
@@ -317,6 +320,10 @@ const hasChanges = computed(() => {
     : localContent.value !== "";
 });
 
+const sanitizedPreviewContent = computed(() => {
+  return previewContent.value || localContent.value;
+});
+
 // Save and commit handlers
 const handleSave = () => {
   if (!props.filePath) return;
@@ -435,9 +442,10 @@ const handleLoadSave = async (content: string) => {
 
 const handleRawContentChange = (value: string) => {
   if (!value) return;
-  localContent.value = value;
-  previewContent.value = value;
-  emit("update:content", value);
+  const formattedContent = formatHTML(value);
+  localContent.value = formattedContent;
+  previewContent.value = formattedContent;
+  emit("update:content", formattedContent);
 };
 
 // Watch for content changes
@@ -477,6 +485,13 @@ watch(rawMode, (newValue) => {
   }
 });
 
+watch(previewMode, (newValue) => {
+  if (newValue && editor.value) {
+    const content = formatHTML(editor.value.getHTML());
+    previewContent.value = content;
+  }
+});
+
 // Watch content prop changes
 watchEffect(() => {
   if (localContent.value !== "") {
@@ -508,6 +523,10 @@ onMounted(async () => {
           class: null,
         },
       }),
+      TextStyle,
+      FontSize.configure({
+        types: ["textStyle"],
+      }),
       Heading.configure({
         HTMLAttributes: {
           class: null,
@@ -536,39 +555,38 @@ onMounted(async () => {
       },
       handleDrop: false,
       handleClick: (view: EditorView, pos: number, event: MouseEvent) => {
-        const coordsAtPos = view.coordsAtPos(pos);
-        const element = document.elementFromPoint(
-          coordsAtPos.left,
-          coordsAtPos.top
+        // Get the precise position
+        const precise = view.posAtCoords({
+          left: event.clientX,
+          top: event.clientY,
+        });
+
+        if (!precise) return false;
+
+        const { pos: precisePos } = precise;
+        const $pos = view.state.doc.resolve(precisePos);
+
+        // Check if we're actually clicking on text content
+        const domAtPos = view.domAtPos(precisePos);
+        if (!domAtPos) return false;
+
+        const { node: domNode, offset } = domAtPos;
+        const element = event.target as HTMLElement;
+
+        // If clicking on/near an image, don't interfere
+        if (element.nodeName === "IMG" || element.closest("img")) {
+          return false;
+        }
+
+        // Create selection at the precise click position
+        view.dispatch(
+          view.state.tr.setSelection(
+            TextSelection.create(view.state.doc, precisePos)
+          )
         );
 
-        if (element?.closest('[style*="display: flex"]')) {
-          const flexContainer = element.closest('[style*="display: flex"]');
-          if (flexContainer) {
-            const rect = flexContainer.getBoundingClientRect();
-            const relativeY = event.clientY - rect.top;
-
-            const children = Array.from(flexContainer.children);
-            const targetChild = children.find((child) => {
-              const childRect = child.getBoundingClientRect();
-              return (
-                event.clientY >= childRect.top &&
-                event.clientY <= childRect.bottom
-              );
-            });
-
-            if (targetChild) {
-              const targetPos = view.posAtDOM(targetChild, 0);
-              view.dispatch(
-                view.state.tr.setSelection(
-                  TextSelection.create(view.state.doc, targetPos)
-                )
-              );
-              return true;
-            }
-          }
-        }
-        return false;
+        view.focus();
+        return true;
       },
       handleKeyDown: (view: EditorView, event: KeyboardEvent) => {
         if (event.key === "Enter") {
@@ -870,6 +888,25 @@ onBeforeUnmount(() => {
               >
                 List
               </button>
+              <select
+                class="font-size-select"
+                @change="
+                  (e) =>
+                    editor.chain().focus().setFontSize(e.target.value).run()
+                "
+              >
+                <option value="">Font Size</option>
+                <option
+                  v-for="option in fontSizeOptions"
+                  :key="option.value"
+                  :value="option.value"
+                  :selected="
+                    editor.isActive('textStyle', { fontSize: option.value })
+                  "
+                >
+                  {{ option.label }}
+                </option>
+              </select>
               <AddContentDialog
                 :onInsertComponent="handleInsertComponent"
                 :onInsertSection="handleInsertSection"
@@ -1037,6 +1074,34 @@ onBeforeUnmount(() => {
   cursor: not-allowed;
 }
 
+.font-size-select {
+  padding: 0.5rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: white;
+  color: #374151;
+  cursor: pointer;
+  font-size: 0.875rem;
+  transition: all 0.2s;
+}
+
+.font-size-select:hover {
+  background: #f9fafb;
+  border-color: #d1d5db;
+}
+
+.font-size-select:focus {
+  outline: none;
+  border-color: #4361ee;
+  box-shadow: 0 0 0 2px rgba(67, 97, 238, 0.2);
+}
+
+/* Make sure dropdown aligns with other toolbar items */
+.tiptap-toolbar select {
+  height: 36px; /* Match button height */
+  margin: 0;
+}
+
 .file-path {
   color: #374151;
   font-size: 0.875rem;
@@ -1055,6 +1120,34 @@ onBeforeUnmount(() => {
   width: 100%;
   height: 100%;
   min-height: calc(100vh - 120px); /* Ensure editor has enough height */
+}
+
+.preview-wrapper {
+  flex: 1;
+  overflow: auto;
+  background: white;
+}
+
+.preview-content {
+  min-height: 100%;
+  padding: 2rem;
+}
+
+/* Add styles for preview mode content */
+.preview-content img {
+  max-width: 100%;
+  height: auto;
+}
+
+.preview-content h1,
+.preview-content h2,
+.preview-content h3 {
+  margin: 1.5rem 0 1rem;
+}
+
+.preview-content p {
+  margin: 1rem 0;
+  line-height: 1.6;
 }
 
 /* Prose Mirror Styles */
