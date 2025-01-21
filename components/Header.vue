@@ -23,7 +23,7 @@
             fill="#FF5310"
           />
         </svg>
-        <NuxtLink to="/" class="logo-link">ECHO</NuxtLink>
+        <NuxtLink to="/" class="logo-link">LOGO</NuxtLink>
       </div>
 
       <div class="right-content">
