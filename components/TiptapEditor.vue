@@ -46,53 +46,98 @@ const handleInsertComponent = (componentId: string) => {
   }
 };
 
-const templates = {
-  "split-with-image": `
-    <div style="display: flex; gap: 2rem; margin: 3rem 0;">
-      <div style="flex: 1;">
-        <h2 style="margin: 0; font-size: 1.5rem; font-weight: 600; line-height: 1.4;">Section Title</h2>
-      </div>
-      <div style="flex: 2;">
-        <div style="background: #f5f5f5; padding: 2rem; border-radius: 4px;">
-          <img src="/api/placeholder/800/400" alt="Section Image" style="width: 100%; height: auto; display: block;" />
-        </div>
-        <h3 style="font-size: 1.25rem; font-weight: 600; margin: 1rem 0;">Add Subtitle</h3>
-        <p style="margin: 1rem 0; line-height: 1.6;">Add your description here.</p>
-        <p style="margin: 1rem 0; line-height: 1.6;">Add additional details here.</p>
-      </div>
-    </div>
-  `,
-  "split-with-list": `
-    <div style="display: flex; gap: 2rem; margin: 3rem 0;">
-      <div style="flex: 1;">
-        <h2 style="margin: 0; font-size: 1.5rem; font-weight: 600; line-height: 1.4;">Section Title</h2>
-      </div>
-      <div style="flex: 2;">
-        <img src="/api/placeholder/800/400" alt="Section Image" style="width: 100%; height: auto; display: block; padding: 2rem; border-radius: 4px;" />
-        <p style="margin: 1rem 0; line-height: 1.6;">Add your description here.</p>
-        <ul style="list-style: none; padding: 0; margin: 1rem 0;">
-          <li style="margin: 0.5rem 0; line-height: 1.6;">List item one</li>
-          <li style="margin: 0.5rem 0; line-height: 1.6;">List item two</li>
-          <li style="margin: 0.5rem 0; line-height: 1.6;">List item three</li>
-          <li style="margin: 0.5rem 0; line-height: 1.6;">List item four</li>
-        </ul>
-      </div>
-    </div>
-  `,
-};
+// const templates = {
+//   "split-with-image": `
+//     <div style="display: flex; gap: 2rem; margin: 3rem 0;">
+//       <div style="flex: 1;">
+//         <h2 style="margin: 0; font-size: 1.5rem; font-weight: 600; line-height: 1.4;">Section Title</h2>
+//       </div>
+//       <div style="flex: 2;">
+//         <div style="background: #f5f5f5; padding: 2rem; border-radius: 4px;">
+//           <img src="/api/placeholder/800/400" alt="Section Image" style="width: 100%; height: auto; display: block;" />
+//         </div>
+//         <h3 style="font-size: 1.25rem; font-weight: 600; margin: 1rem 0;">Add Subtitle</h3>
+//         <p style="margin: 1rem 0; line-height: 1.6;">Add your description here.</p>
+//         <p style="margin: 1rem 0; line-height: 1.6;">Add additional details here.</p>
+//       </div>
+//     </div>
+//   `,
+//   "split-with-list": `
+//     <div style="display: flex; gap: 2rem; margin: 3rem 0;">
+//       <div style="flex: 1;">
+//         <h2 style="margin: 0; font-size: 1.5rem; font-weight: 600; line-height: 1.4;">Section Title</h2>
+//       </div>
+//       <div style="flex: 2;">
+//         <img src="/api/placeholder/800/400" alt="Section Image" style="width: 100%; height: auto; display: block; padding: 2rem; border-radius: 4px;" />
+//         <p style="margin: 1rem 0; line-height: 1.6;">Add your description here.</p>
+//         <ul style="list-style: none; padding: 0; margin: 1rem 0;">
+//           <li style="margin: 0.5rem 0; line-height: 1.6;">List item one</li>
+//           <li style="margin: 0.5rem 0; line-height: 1.6;">List item two</li>
+//           <li style="margin: 0.5rem 0; line-height: 1.6;">List item three</li>
+//           <li style="margin: 0.5rem 0; line-height: 1.6;">List item four</li>
+//         </ul>
+//       </div>
+//     </div>
+//   `,
+// };
 
 const handleInsertSection = (sectionId: string) => {
   if (!editor.value) return;
 
-  const template = templates[sectionId];
-  if (template) {
-    editor.value
-      .chain()
-      .focus()
-      .createParagraphNear()
-      .insertContent(template)
-      .focus()
-      .run();
+  switch (sectionId) {
+    case "split-with-image":
+      editor.value
+        .chain()
+        .focus()
+        .insertContent({
+          type: "styledDiv",
+          attrs: {
+            style:
+              "display: grid; grid-template-columns: 1fr 2fr; gap: 2rem; margin: 3rem 0;",
+          },
+          content: [
+            {
+              type: "div",
+              content: [
+                {
+                  type: "heading",
+                  attrs: { level: 2 },
+                  content: [{ type: "text", text: "Section Title" }],
+                },
+              ],
+            },
+            {
+              type: "div",
+              content: [
+                {
+                  type: "paragraph",
+                  content: [
+                    {
+                      type: "image",
+                      attrs: {
+                        src: "/api/placeholder/800/400",
+                        alt: "Section Image",
+                      },
+                    },
+                  ],
+                },
+                {
+                  type: "heading",
+                  attrs: { level: 3 },
+                  content: [{ type: "text", text: "Add Subtitle" }],
+                },
+                {
+                  type: "paragraph",
+                  content: [
+                    { type: "text", text: "Add your description here." },
+                  ],
+                },
+              ],
+            },
+          ],
+        })
+        .run();
+      break;
   }
 };
 
